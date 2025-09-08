@@ -49,7 +49,7 @@ class Scheduler:
     # don't affect the scheduling loop; they are just extra draws.
 
     def __init__(
-        self, canvas, events, *, update_mode="ondemand", min_fps=0, max_fps=30
+        self, canvas, events, *, update_mode: UpdateMode ="ondemand", min_fps=0.0, max_fps=30.0
     ):
         self.name = f"{canvas.__class__.__name__} scheduler"
 
@@ -114,6 +114,7 @@ class Scheduler:
 
         # Little startup sleep
         await sleep(0.05)
+        print("start_time,delay,tick_time,before_draw_time,draw_end_time")
 
         while True:
             # Determine delay
@@ -124,17 +125,22 @@ class Scheduler:
                 delay = 0 if delay < 0 else delay  # 0 means cannot keep up
 
             # Offset delay for time spent on processing events, etc.
-            time_since_tick_start = time.perf_counter() - last_tick_time
+            start_time = time.perf_counter()
+            print(f"{start_time:.6f}", end=",")
+            # time_since_tick_start = time.perf_counter() - last_tick_time
+            time_since_tick_start = start_time - last_tick_time
             delay -= time_since_tick_start
             delay = max(0, delay)
 
+            print(f"{delay:.6f}", end=",")
             # Wait. Even if delay is zero, it gives control back to the loop,
             # allowing other tasks to do work.
+            before_sleep = time.perf_counter()
             await sleep(delay)
-
             # Below is the "tick"
 
             last_tick_time = time.perf_counter()
+            print(f"{last_tick_time:.6f}", end=",")
 
             # Process events, handlers may request a draw
             if (canvas := self.get_canvas()) is None:
@@ -180,10 +186,16 @@ class Scheduler:
             canvas._rc_request_draw()
             del canvas
 
+            before_draw = time.perf_counter()
+            print(f"{before_draw:.6f}", end=",")
             # Wait for the draw to happen
             self._async_draw_event = Event()
             await self._async_draw_event.wait()
-            last_draw_time = time.perf_counter()
+            draw_end_time = time.perf_counter()
+            print(f"{draw_end_time:.6f}")
+            # last_draw_time = time.perf_counter()
+            last_draw_time = draw_end_time
+            # print(last_draw_time - last_tick_time)
 
         # Note that when the canvas is closed, we may detect it here and break from the loop.
         # But the task may also be waiting for a draw to happen, or something else. In that case
