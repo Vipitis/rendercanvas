@@ -120,34 +120,8 @@ class Scheduler:
         await sleep(0.05)
 
         while True:
-            # Determine delay
-            if self._mode == "fastest" or self._max_fps <= 0:
-                delay = 0
-            else:
-                delay = 1 / self._max_fps
-                delay = 0 if delay < 0 else delay  # 0 means cannot keep up
+            start_time = time.perf_counter()
 
-            # Determine amount of sleep
-            sleep_time = delay - (time.perf_counter() - last_tick_time)
-
-            if IS_WIN:
-                # On Windows OS-level timers have an in accuracy of 15.6 ms.
-                # This can cause sleep to take longer than intended. So we sleep
-                # less, and then do a few small sync-sleeps that have high accuracy.
-                await sleep(max(0, sleep_time - 0.0156))
-                sleep_time = delay - (time.perf_counter() - last_tick_time)
-                while sleep_time > 0:
-                    time.sleep(min(sleep_time, 0.001))  # sleep hard for at most 1ms
-                    await sleep(0)  # Allow other tasks to run but don't wait
-                    sleep_time = delay - (time.perf_counter() - last_tick_time)
-            else:
-                # Wait. Even if delay is zero, it gives control back to the loop,
-                # allowing other tasks to do work.
-                await sleep(max(0, sleep_time))
-
-            # Below is the "tick"
-
-            last_tick_time = time.perf_counter()
 
             # Process events, handlers may request a draw
             if (canvas := self.get_canvas()) is None:
@@ -196,7 +170,32 @@ class Scheduler:
             # Wait for the draw to happen
             self._async_draw_event = Event()
             await self._async_draw_event.wait()
-            last_draw_time = time.perf_counter()
+
+
+            # wait untill the next frame. (events are processed now? or just collected?)
+            target_frametime = max(0.0, 1 / self._max_fps)
+            if self._mode == UpdateMode.fastest or self._max_fps <= 0:
+                sleep_time = 0
+            else:
+                sleep_time = target_frametime - (time.perf_counter() - start_time)
+
+            print(sleep_time)
+            if IS_WIN:
+                # On Windows OS-level timers have an in accuracy of 15.6 ms.
+                # This can cause sleep to take longer than intended. So we sleep
+                # less, and then do a few small sync-sleeps that have high accuracy.
+                await sleep(max(0, sleep_time - 0.0156))
+                sleep_time = target_frametime - (time.perf_counter() - start_time)
+                while sleep_time > 0:
+                    time.sleep(min(sleep_time, 0.001))  # sleep hard for at most 1ms
+                    await sleep(0)  # Allow other tasks to run but don't wait
+                    sleep_time = target_frametime - (time.perf_counter() - start_time)
+            else:
+                # Wait. Even if delay is zero, it gives control back to the loop,
+                # allowing other tasks to do work.
+                await sleep(max(0, sleep_time))
+            # here we loop back to the top.
+
 
         # Note that when the canvas is closed, we may detect it here and break from the loop.
         # But the task may also be waiting for a draw to happen, or something else. In that case

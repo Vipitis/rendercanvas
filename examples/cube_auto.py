@@ -11,7 +11,7 @@ from rendercanvas.auto import RenderCanvas, loop
 from rendercanvas.utils.cube import setup_drawing_sync
 
 canvas = RenderCanvas(
-    title="The wgpu cube example on $backend", update_mode="continuous"
+    title="The wgpu cube example on $backend, at $fps fps", update_mode="fastest", max_fps=90.0,
 )
 draw_frame = setup_drawing_sync(canvas)
 canvas.request_draw(draw_frame)
