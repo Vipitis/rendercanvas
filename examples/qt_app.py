@@ -32,20 +32,25 @@ from rendercanvas.utils.cube import setup_drawing_sync
 class ExampleWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.resize(640, 480)
+        self.resize(1260, 480)
         self.setWindowTitle("Rendering to a canvas embedded in a qt app")
 
         splitter = QtWidgets.QSplitter()
 
         self.button = QtWidgets.QPushButton("Hello world", self)
-        self.canvas = QRenderWidget(splitter, update_mode="continuous")
+        self.canvas_bitmap = QRenderWidget(splitter, update_mode="continuous", present_method="bitmap", title="bitmap widget")
+        self.canvas_screen = QRenderWidget(splitter, update_mode="continuous", present_method="screen", title="screen widget")
         self.output = QtWidgets.QTextEdit(splitter)
 
         self.button.clicked.connect(self.whenButtonClicked)
+        self.canvas_bitmap.add_event_handler(self.whenCanvasClicked, "pointer_down")
+        self.canvas_screen.add_event_handler(self.whenCanvasClicked, "pointer_down")
 
-        splitter.addWidget(self.canvas)
+        # TODO: have some labels to indicate which canvas is which? (does this need to wrap the canvas inside some container widget?)
+        splitter.addWidget(self.canvas_bitmap)
+        splitter.addWidget(self.canvas_screen)
         splitter.addWidget(self.output)
-        splitter.setSizes([400, 300])
+        splitter.setSizes([400, 400, 200])
 
         layout = QtWidgets.QHBoxLayout()
         layout.addWidget(self.button, 0)
@@ -62,12 +67,20 @@ class ExampleWidget(QtWidgets.QWidget):
     def whenButtonClicked(self):
         self.addLine(f"Clicked at {time.time():0.1f}")
 
+    def whenCanvasClicked(self, event):
+        # TODO: can we figure out which canvas was clicked? (to show it's present_method perhaps)...
+        self.addLine(f"Canvas clicked at {time.time():0.1f}, {event=}")
+
 
 app = QtWidgets.QApplication([])
 example = ExampleWidget()
 
-draw_frame = setup_drawing_sync(example.canvas)
-example.canvas.request_draw(draw_frame)
+
+draw_frame_bitmap = setup_drawing_sync(example.canvas_bitmap)
+example.canvas_bitmap.request_draw(draw_frame_bitmap)
+
+draw_frame_screen = setup_drawing_sync(example.canvas_screen)
+example.canvas_screen.request_draw(draw_frame_screen)
 
 # Enter Qt event-loop (compatible with qt5/qt6)
 app.exec() if hasattr(app, "exec") else app.exec_()
